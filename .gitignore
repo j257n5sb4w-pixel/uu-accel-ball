@@ -1,0 +1,23 @@
+# runtime data / records (鍚处鍙蜂細璇濓紝鍒囧嬁鎻愪氦)
+uu-data/
+.uu-ball/
+session.json
+state.json
+ball.json
+covers/
+*.zip
+
+# build artefacts
+_pylib/
+_whlcache/
+build/
+dist/
+__pycache__/
+*.pyc
+
+# reverse-engineering scratch
+pull/
+ext/
+ghidra/
+triage/
+*uuplugin
