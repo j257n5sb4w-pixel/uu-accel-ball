@@ -1,48 +1,79 @@
-# UU 鍔犻€熺悆锛圲U Accelerator Ball锛?
-涓€涓?**Windows 妗岄潰灏忕悆**锛岀敤鏉ョ粰鏈満锛圥C锛夊湪**璺敱鍣ㄤ笂鐨勭綉鏄?UU 鍔犻€熷櫒鎻掍欢**閲?涓€閿垏鎹㈠姞閫熺殑娓告垙 / 澶у尯锛屽苟甯搁┗鏄剧ず褰撳墠鍔犻€熸父鎴忕殑灏侀潰銆?
-- 鐧借壊鍗婇€忔槑鍦嗗舰灏忕悆锛岀疆椤躲€佸彲鎷栧姩锛屾敹璧锋€佸彧鏄剧ず娓告垙灏侀潰
-- 鐐瑰紑鏄悳绱㈤潰鏉匡細鏈€杩戞父鐜╋紙鍙屽嚮鐩存帴鍔犻€燂級锛嬫寜鎷奸煶棣栧瓧姣嶅垎缁勭殑鍏ㄩ儴娓告垙
-- 鑷姩鎺㈡祴璺敱鍣ㄤ笂鐨?UU 鎻掍欢锛坄16363/TCP` 鏄庢枃 HTTP `GET /router`锛?- 鑷姩閿佸畾鏈満璁惧锛圛P 鈫?MAC 涓夌骇鍖归厤锛屾柊鐢佃剳鍙敤鏈満淇℃伅鑷姩娉ㄥ唽锛?- 璁板綍鎸佷箙鍖栵細灏忕悆浣嶇疆銆佹渶杩戠帺杩囩殑娓告垙/鍖烘湇銆佸皝闈㈢紦瀛橀兘鍦?`uu-data\`
-- 鍙墦鍖呮垚渚挎惡 exe锛屾暣涓枃浠跺す鎷峰埌鍒殑鐢佃剳灏辫兘鐢?
-> 涓庣綉鏄?/ UU 瀹樻柟鏃犲叧锛岀函灞炰釜浜鸿嚜鐢ㄥ伐鍏凤紱瀹冭皟鐢ㄧ殑鏄?`router.uu.163.com`
-> 涓婅矾鐢卞櫒椤甸潰鑷繁鐨?`api`锛屼笉淇敼浠讳綍瀹樻柟浜岃繘鍒躲€?
-## 蹇€熷紑濮嬶紙婧愮爜杩愯锛?
-```bat
-python uuball.pyw            :: 闇€瑕?Python 3.9+锛坱kinter锛?python uuball.pyw --selftest :: 涓嶅紑绐楋紝鎵撳嵃鎺㈡祴/鐧诲綍/璁惧/娓告垙搴撶粨鏋?```
+# UU 加速球（UU Accelerator Ball）
 
-棣栨杩愯鑻ュ皬鐞冩樉绀恒€屾湭鐧诲綍銆嶏紝鐐瑰畠 鈫?寮瑰嚭鐧诲綍妗?鈫?绮樿创娴忚鍣?Cookie锛?
-1. 娴忚鍣ㄦ墦寮€ `https://router.uu.163.com/asus/pc.html` 骞剁櫥褰曪紙鍙湁鐭俊楠岃瘉鐮佺櫥褰曪級
-2. F12 鈫?Network 鈫?鐐逛换鎰?`/api/...` 璇锋眰 鈫?澶嶅埗璇锋眰澶?`Cookie` 鏁翠覆锛堝惈 `sess=...`锛?3. 绮樿繘妗嗛噷鐐广€岀櫥褰曘€嶏紝浼氳瘽绾?15 澶╂湁鏁?
-## 鎵撳寘鎴?exe
+一个 **Windows 桌面小球**，用来给本机（PC）在**路由器上的网易 UU 加速器插件**里
+一键切换加速的游戏 / 大区，并常驻显示当前加速游戏的封面。
+
+- 白色半透明圆形小球，置顶、可拖动，收起态只显示游戏封面
+- 点开是搜索面板：最近游玩（双击直接加速）＋按拼音首字母分组的全部游戏
+- 自动探测路由器上的 UU 插件（`16363/TCP` 明文 HTTP `GET /router`）
+- 自动锁定本机设备（IP → MAC 三级匹配，新电脑可用本机信息自动注册）
+- 记录持久化：小球位置、最近玩过的游戏/区服、封面缓存都在 `uu-data\`
+- 可打包成便携 exe，整个文件夹拷到别的电脑就能用
+
+> 与网易 / UU 官方无关，纯属个人自用工具；它调用的是 `router.uu.163.com`
+> 上路由器页面自己在用的 `api`，不修改任何官方二进制。
+
+## 下载（Windows 便携版）
+
+[v1.0.0 release](https://github.com/j257n5sb4w-pixel/uu-accel-ball/releases/latest)
+里的 `uu-ball-v1.0.0-win64.zip`：解压 → 双击 `UU加速球.exe`。
+包内不含任何账号会话，第一次运行需要粘一次 Cookie（见下）。
+
+## 快速开始（源码运行）
+
+```bat
+python uuball.pyw            :: 需要 Python 3.9+（tkinter），无第三方依赖
+python uuball.pyw --selftest :: 不开窗，打印探测/登录/设备/游戏库结果
+```
+
+首次运行若小球显示「未登录」，点它 → 弹出登录框 → 粘贴浏览器 Cookie：
+
+1. 浏览器打开 `https://router.uu.163.com/asus/pc.html` 并登录（只有短信验证码登录）
+2. F12 → Network → 点任意 `/api/...` 请求 → 复制请求头 `Cookie` 整串（含 `sess=...`）
+3. 粘进框里点「登录」，会话约 15 天有效
+
+## 打包成 exe
 
 ```bat
 build_exe.cmd
 ```
 
-鐢?PyInstaller锛坄--onedir --windowed`锛変骇鍑?`dist\UU鍔犻€熺悆\UU鍔犻€熺悆.exe`銆?`build_exe.cmd` 閲屾妸渚濊禆瑁呭湪 `_pylib`锛堢敱 `_whl3.py` 浠庨暅鍍忓彇 whl 瑙ｅ帇锛夛紝
-涓嶆薄鏌撳叏灞€ site-packages銆?
-> 娉ㄦ剰锛氬崟鏂囦欢 `--onefile` 鍦ㄥ彈闄愮幆澧冿紙绂佹瀛愯繘绋嬭В鍖呭埌 TEMP锛夐噷浼氬崱姝伙紝
-> 鍥犳榛樿浜や粯 onedir銆傝鍗曟枃浠跺氨鑷繁鎶?`--onedir` 鎹㈡垚 `--onefile` 閲嶆墦銆?
-## 宸ヤ綔鍘熺悊锛堜笁姝ワ級
+用 PyInstaller（`--onedir --windowed`）产出 `dist\UU加速球\UU加速球.exe`。
+`build_exe.cmd` 里的依赖装在 `_pylib`（由 `_whl3.py` 从镜像取 whl 解压），
+不污染全局 site-packages。
 
-1. **鎵炬彃浠?*锛歚GET http://<router>:16363/router` 杩斿洖
-   `type:asuswrt / sn:... / model:...`锛岃兘鍥炲寘璇存槑 UU 鎻掍欢娲荤潃锛堣绔彛鐢辨彃浠惰嚜宸辩洃鍚級銆?2. **鎵炬湰鏈?*锛歚router.uu.163.com/api` 鐨勮澶囧垪琛ㄩ噷鎸?`ip+windows` 鈫?`ip` 鈫?`mac` 鍖归厤锛?   閮芥病鏈夊氨鐢?`{type:windows, mac, ip, hostname}` 鐜伴€犱竴涓紝`POST /acc` 鏃跺悗绔細娉ㄥ唽銆?3. **鍒囨父鎴?*锛歚POST /acc-mode-setting`锛堝甫 `game_id/zone_id/server_id`锛夆啋 `POST /acc`锛?   鍋滄璧?`POST /stop-acc`銆?
-闈㈡澘涓庡皬鐞冨彧鍋氳繖涓変欢浜嬶紱`uu.py` 閲岀殑 SSH 閮ㄥ垎锛坄uuctl.sh`/`uu_route.sh`锛夋槸鍙€夌殑
-杩愮淮宸ュ叿锛氭煡鐪嬫彃浠惰繘绋嬨€佸惎鍋滅湅闂ㄧ嫍銆佹妸鏌愬彴璁惧鐨勫姞閫熻鍒欏厠闅嗙粰鍙︿竴鍙般€?
-## 鏂囦欢
+> 注意：单文件 `--onefile` 在受限环境（禁止子进程解包到 TEMP）里会卡死，
+> 因此默认交付 onedir。要单文件就自己把 `--onedir` 换成 `--onefile` 重打。
 
-| 鏂囦欢 | 浣滅敤 |
+## 工作原理（三步）
+
+1. **找插件**：`GET http://<router>:16363/router` 返回
+   `type:asuswrt / sn:... / model:...`，能回包说明 UU 插件活着（该端口由插件自己监听）。
+2. **找本机**：`router.uu.163.com/api` 的设备列表里按 `ip+windows` → `ip` → `mac` 匹配；
+   都没有就用 `{type:windows, mac, ip, hostname}` 现造一个，`POST /acc` 时后端会注册。
+3. **切游戏**：`POST /acc-mode-setting`（带 `game_id/zone_id/server_id`）→ `POST /acc`；
+   停止走 `POST /stop-acc`。
+
+面板与小球只做这三件事；`uu.py` 里的 SSH 部分（`uuctl.sh` / `uu_route.sh`）是可选的
+运维工具：查看插件进程、启停看门狗、把某台设备的加速规则克隆给另一台。
+
+## 文件
+
+| 文件 | 作用 |
 |---|---|
-| `uuball.pyw` | 灏忕悆 + 闈㈡澘鍏ㄩ儴 UI锛坱kinter锛屾棤绗笁鏂逛緷璧栵級 |
-| `uu.py` | 浜戠 API / SSH 鍛戒护琛岋紙`dev` `acc` `unacc` `games` `login` `status` 鈥︼級 |
-| `uuctl.sh` / `uu_route.sh` | 璺敱鍣ㄤ晶鍔╂墜锛氭彃浠惰繘绋嬬鐞嗐€乣ip rule` + `iptables` 瑙勫垯鍏嬮殕 |
-| `build_exe.cmd` | PyInstaller 鎵撳寘鑴氭湰 |
-| `REPORT.md` | 閫嗗悜涓庡疄娴嬭褰曪紙鏈湴鎺у埗闈€佷簯绔?API銆佹暟鎹潰瑙勫垯锛?|
-| `HANDOFF.md` | 浜ゆ帴鏂囨。锛氱幆澧冦€佸懡浠ゃ€佺姸鎬佸揩鐓?|
+| `uuball.pyw` | 小球 + 面板全部 UI（tkinter，无第三方依赖） |
+| `uu.py` | 云端 API / SSH 命令行（`dev` `acc` `unacc` `games` `login` `status` …） |
+| `uuctl.sh` / `uu_route.sh` | 路由器侧助手：插件进程管理、`ip rule` + `iptables` 规则克隆 |
+| `build_exe.cmd` | PyInstaller 打包脚本 |
+| `REPORT.md` | 逆向与实测记录（本地控制面、云端 API、数据面规则） |
+| `HANDOFF.md` | 交接文档：环境、命令、状态快照 |
 
-## 闅愮
+## 隐私
 
-浠撳簱閲屼笉鍚处鍙蜂細璇濓紙`session.json`锛夈€佽澶囧垪琛紙`state.json`锛夈€?璺敱鍣ㄥ嚟鎹紙宸叉浛鎹㈡垚 `<ROUTER_USER>` 绛夊崰浣嶇锛変笌瀹樻柟浜岃繘鍒躲€?杩愯鏃剁敓鎴愮殑 `uu-data\` 宸插湪 `.gitignore` 涓€?
-## 璁稿彲
+仓库里不含账号会话（`session.json`）、设备列表（`state.json`）、
+路由器凭据（已替换成 `<ROUTER_USER>` / `<ROUTER_PASSWORD>` / `<ROUTER_SN>` 占位符）
+与官方二进制。运行时生成的 `uu-data\` 已在 `.gitignore` 中。
 
-MIT
+## 许可
+
+MIT，见 `LICENSE`。
