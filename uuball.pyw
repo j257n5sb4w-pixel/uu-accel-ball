@@ -403,6 +403,26 @@ def detect_router(cfg):
         info = probe_router(ip)
         if info:
             return info
+    # 网关不是路由器（双 NAT、AP 模式、旁路由）时，扫一遍整个 /24 最省事：
+    # 254 个地址、64 并发、0.5s 超时，通常 1~2 秒收敛。
+    if me.count(".") == 3:
+        pfx = me.rsplit(".", 1)[0] + "."
+        found = []
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _one(tail):
+            ip = pfx + str(tail)
+            if ip == me:
+                return
+            got = probe_router(ip, timeout=0.5)
+            if got:
+                found.append(got)
+
+        with ThreadPoolExecutor(max_workers=64) as pool:
+            list(pool.map(_one, range(1, 255)))
+        if found:
+            _log("router: /24 命中 %s" % found[0]["ip"])
+            return found[0]
     return None
 
 
@@ -614,7 +634,8 @@ class App:
         elif mode == "busy":
             t1 = short(st.get("note") or "处理中…", 7)
         elif mode == "nologin":
-            t1, t2 = "未登录", "点我登录"
+            t1 = "未登录"
+            t2 = short(self.state.get("note") or "点我登录", 12)
         else:
             t1, t2 = "未加速", "点我选择"
         if t1:
@@ -979,15 +1000,44 @@ class App:
                 cookie = "sess=" + cookie
             if not sess:
                 raise ValueError("Cookie 里没有 sess=")
-            data = {"sess": sess, "cookie": cookie,
-                    "sn": self.cfg.get("router_sn") or uu.SN}
+            sn = (self.router or {}).get("sn") or ""
+            if not sn:
+                raise ValueError("还没探测到路由器上的 UU 插件，"
+                                 "先确认它开着（16363 端口）再登录")
+            uu.set_sn(sn)
+            data = {"sess": sess, "cookie": cookie, "sn": sn}
             with open(uu.SESSION_FILE, "w", encoding="utf-8") as fh:
                 fh.write(json.dumps(data, ensure_ascii=False, indent=1))
             self.sess = ""
             _log("login: saved sess=%s… -> %s" % (sess[:8], uu.SESSION_FILE))
-            threading.Thread(target=self.load_games, daemon=True).start()
-        except Exception as exc:
+            self.q.put(("state", {"mode": "busy", "note": "正在验证登录…"}))
+            threading.Thread(target=self.verify_login, daemon=True).start()
+        except Exception as exc:  # noqa: BLE001
             _log("login: %r" % (exc,))
+            self.q.put(("state", {"mode": "nologin",
+                                  "note": "登录失败：%s" % exc}))
+
+    def verify_login(self):
+        """登录后立刻打一次 /sess + /devices，把结果反馈到球上。"""
+        try:
+            sess, logged, _ = uu.cloud_session()
+        except SystemExit:
+            self.q.put(("state", {"mode": "nologin",
+                                  "note": "失败：没探测到路由器"}))
+            return
+        except Exception as exc:  # noqa: BLE001
+            self.q.put(("state", {"mode": "nologin",
+                                  "note": "失败：%s" % exc}))
+            return
+        if not logged:
+            _log("login: uu_logged_in=false")
+            self.q.put(("state", {"mode": "nologin",
+                                  "note": "Cookie 无效或已过期"}))
+            return
+        self.sess = sess
+        _log("login: 验证通过")
+        self.load_games()
+        self.refresh_cloud()
 
     def open_panel(self):
         if self.panel is not None:
@@ -1078,10 +1128,33 @@ class App:
             _log("router: %s %s %s sn=%s" % (info["ip"], info.get("type"),
                                              info.get("model"), info.get("sn")))
         self.router = info
+        uu.set_sn(info.get("sn") or "")
+        self.check_session_owner(info.get("sn") or "")
         if self.cfg.get("router_ip") != info["ip"]:
             self.cfg["router_ip"] = info["ip"]
             self.cfg["router_sn"] = info.get("sn") or ""
             save_cfg(self.cfg)
+
+    def check_session_owner(self, sn):
+        """session.json 是从别的机器/别的路由器拷来的话，直接作废。
+
+        云端 /api/sess 用 sn 判定「这是哪台路由器」。sn 对不上还沿用旧 cookie，
+        就会去改别人家路由器上的加速设置 —— 别人拿到的安装包带着我们的
+        session.json 时，正是这样把我们的加速改掉的。
+        """
+        if not sn:
+            return
+        try:
+            st = uu.load_session()
+        except Exception:
+            return
+        old = (st.get("sn") or "").strip()
+        if old and old.lower() != sn.lower():
+            uu.save_session({"sn": sn})
+            self.sess = ""
+            _log("session: 属于 %s，本机是 %s，已丢弃旧登录态" % (old, sn))
+            self.q.put(("state", {"mode": "nologin",
+                                  "note": "路由器变了，请重新登录"}))
 
     # ------------------------------------------------------------ 最近游玩
     def note_recent(self, gid, name, zone="", server="", icon=""):
@@ -1117,7 +1190,8 @@ class App:
             if not self.sess:
                 self.sess, logged, _ = uu.cloud_session()
                 if not logged:
-                    self.q.put(("state", {"mode": "nologin"}))
+                    self.q.put(("state", {"mode": "nologin",
+                                          "note": "登录已过期"}))
                     return
             res = uu.devices(self.sess)
             if res is None:
@@ -1139,12 +1213,16 @@ class App:
                     if i.get("ip") == ip:
                         hit = d
                         break
-            if hit is None and self.cfg.get("mac"):
-                for d in devs:
-                    i = d.get("deviceinfo") or {}
-                    if str(i.get("mac", "")).lower() == str(self.cfg["mac"]).lower():
-                        hit = d
-                        break
+            if hit is None:
+                # 只用「现在这台机器」的 MAC；配置文件里的 mac 可能是别的机器的
+                # （换电脑/拷目录），拿它匹配会把别人的设备当成自己。
+                lmac = local_mac()
+                if lmac:
+                    for d in devs:
+                        i = d.get("deviceinfo") or {}
+                        if str(i.get("mac", "")).lower() == lmac.lower():
+                            hit = d
+                            break
             if hit is None:
                 # 换电脑后云端还没有本机记录：用本机信息先构造一个，
                 # 真正 /acc 时后端会把设备注册进这台路由器的设备表。
@@ -1173,9 +1251,12 @@ class App:
                                       "icon": sett.get("icon_url") or ""}))
             else:
                 self.q.put(("state", {"mode": "idle"}))
-        except SystemExit:
+        except SystemExit as exc:
             self.sess = ""
-            self.q.put(("state", {"mode": "nologin"}))
+            no_router = str(exc) == "4"
+            self.q.put(("state", {"mode": "nologin",
+                                  "note": "没探测到路由器" if no_router
+                                          else "登录已过期"}))
         except Exception as exc:
             _log("refresh_cloud: %r" % (exc,))
 
@@ -1672,13 +1753,44 @@ class Panel:
 
 
 # ----------------------------------------------------------------- 入口
-def single_instance():
-    s = socket.socket()
+def _alive(pid):
     try:
-        s.bind(("127.0.0.1", 49739))
+        if os.name == "nt":
+            import ctypes
+            h = ctypes.windll.kernel32.OpenProcess(0x1000, False, int(pid))
+            if not h:
+                return False
+            ctypes.windll.kernel32.CloseHandle(h)
+            return True
+        os.kill(int(pid), 0)
+        return True
     except Exception:
+        return False
+
+
+def single_instance():
+    """pidfile + 存活检查。
+
+    别拿固定端口或命名互斥体当锁：49739 会落进系统保留区（bind 报 10048），
+    CreateMutexW 在这个环境里也会回 ERROR_INVALID_NAME，两者都会让程序
+    莫名拒绝启动。
+    """
+    path = os.path.join(CFG_DIR, "ball.pid")
+    old = 0
+    try:
+        with open(path, encoding="utf-8") as fh:
+            old = int((fh.read() or "0").strip() or 0)
+    except Exception:
+        old = 0
+    if old and old != os.getpid() and _alive(old):
         return None
-    return s
+    try:
+        os.makedirs(CFG_DIR, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(str(os.getpid()))
+    except Exception:
+        pass
+    return True
 
 
 def selftest(seconds=6.0, open_panel=False):
@@ -1729,8 +1841,6 @@ def main(argv):
     seed_files()
     try:
         os.makedirs(CFG_DIR, exist_ok=True)
-        with open(os.path.join(CFG_DIR, "ball.pid"), "w") as fh:
-            fh.write(str(os.getpid()))
     except Exception:
         pass
     if "--pos" in argv:

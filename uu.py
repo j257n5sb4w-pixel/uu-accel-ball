@@ -29,9 +29,9 @@ import sys
 import urllib.error
 import urllib.request
 
-HOST = os.environ.get("RHOST", "192.168.50.1")
-USER = os.environ.get("RUSER", "<ROUTER_USER>")
-PASS = os.environ.get("RPASS", "<ROUTER_PASSWORD>")
+HOST = os.environ.get("RHOST", "")
+USER = os.environ.get("RUSER", "CHANGE_ME_USER")
+PASS = os.environ.get("RPASS", "CHANGE_ME_PASSWORD")
 PORT = int(os.environ.get("RPORT", "22"))
 
 HELPER = "/tmp/uuctl.sh"
@@ -55,7 +55,27 @@ ROUTE_SRC = _res("uu_route.sh")
 SESSION_FILE = os.path.join(APP_DIR, "session.json")
 
 API = "https://router.uu.163.com/api"
-SN = os.environ.get("UU_SN", "<ROUTER_SN>")
+# 路由器 SN（gwSn）。云端 /api/sess 的 sn 就是它 —— 千万别写成某台具体路由器
+# 的值，否则别人装了这个程序、又带着别人的 Cookie，就会被当成「那台路由器」，
+# 进而去改别人家的加速设置。由面板/CLI 按实际探测结果注入。
+SN = os.environ.get("UU_SN", "")
+
+
+def set_sn(sn):
+    """设置当前路由器的 SN（空串表示还没探测到）。"""
+    global SN
+    SN = (sn or "").strip()
+    return SN
+
+
+def current_sn():
+    """显式设置 > 环境变量 > 已保存会话里的 sn。"""
+    if SN:
+        return SN
+    try:
+        return (load_session().get("sn") or "").strip()
+    except Exception:
+        return ""
 ROUTER_TYPE = "asuswrt"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
@@ -203,7 +223,11 @@ def api_call(method, path, body=None, sess="", cookie=None):
 def cloud_session(verbose=False):
     """Return (sess, logged_in, details). Always refreshes /api/sess."""
     st = load_session()
-    res = api_call("POST", "/sess", {"sn": SN, "type": ROUTER_TYPE},
+    sn = current_sn()
+    if not sn:
+        raise SystemExit(4)          # 4 = 还没探测到路由器
+    set_sn(sn)
+    res = api_call("POST", "/sess", {"sn": sn, "type": ROUTER_TYPE},
                    cookie=st.get("cookie"))
     sess = res.get("sess") or ""
     logged = bool(res.get("uu_logged_in"))
@@ -227,7 +251,13 @@ NOT_LOGIN_HELP = """\
    python uu.py login --cookie "<粘贴的 Cookie>"
 4. 再跑：
    python uu.py dev
-""".format(page=PAGE, sn=SN.upper(), rtype=ROUTER_TYPE)
+"""
+
+
+def not_login_help():
+    return NOT_LOGIN_HELP.format(page=PAGE,
+                                 sn=(current_sn() or "(未探测)").upper(),
+                                 rtype=ROUTER_TYPE)
 
 
 def cmd_login(args):
@@ -238,14 +268,19 @@ def cmd_login(args):
         cookie = args[0]
     if not cookie:
         print("用法: python uu.py login --cookie \"<浏览器 Cookie>\"\n")
-        print(NOT_LOGIN_HELP)
+        print(not_login_help())
         return 0
     cookie = cookie.strip()
     if cookie.lower().startswith("cookie:"):
         cookie = cookie[7:].strip()
     st = load_session()
+    sn = current_sn()
+    if not sn:
+        print("还没探测到路由器（SN 未知），先跑 `python uu.py status`，")
+        print("或用环境变量指定：set UU_SN=<路由器 MAC>")
+        return 1
     st["cookie"] = cookie
-    st["sn"] = SN
+    st["sn"] = sn
     save_session(st)
     sess, logged, _ = cloud_session(verbose=True)
     if logged:
@@ -266,11 +301,11 @@ def devices(sess):
 def cmd_dev(args):
     sess, logged, _ = cloud_session(verbose="--verbose" in args)
     if not logged:
-        print(NOT_LOGIN_HELP)
+        print(not_login_help())
         return 2
     res = devices(sess)
     if res is None:
-        print(NOT_LOGIN_HELP)
+        print(not_login_help())
         return 2
     if "--json" in args:
         print(json.dumps(res, ensure_ascii=False, indent=1))
@@ -295,7 +330,7 @@ def find_device(sess, target):
     tmac = t.replace("-", ":")
     res = devices(sess)
     if res is None:
-        print(NOT_LOGIN_HELP)
+        print(not_login_help())
         raise SystemExit(2)
     devs = res.get("devices") or res.get("data") or []
     for d in devs:
@@ -417,7 +452,7 @@ def cmd_acc(args):
     srv_tok = args[args.index("--server") + 1] if "--server" in args else None
     sess, logged, _ = cloud_session()
     if not logged:
-        print(NOT_LOGIN_HELP)
+        print(not_login_help())
         return 2
     dev = find_device(sess, target)
     info = dev.get("deviceinfo") or {}
@@ -449,7 +484,7 @@ def cmd_unacc(args):
         return 2
     sess, logged, _ = cloud_session()
     if not logged:
-        print(NOT_LOGIN_HELP)
+        print(not_login_help())
         return 2
     dev = find_device(sess, target)
     info = dev.get("deviceinfo") or {}
@@ -463,7 +498,7 @@ def cmd_games(args):
     plat = args[0] if args else "pc"
     sess, logged, _ = cloud_session()
     if not logged:
-        print(NOT_LOGIN_HELP)
+        print(not_login_help())
         return 2
     r = api_call("GET", "/gamelist?platform=%s" % plat, sess=sess)
     print(json.dumps(r, ensure_ascii=False, indent=1)[:4000])
@@ -482,18 +517,53 @@ def main() -> int:
     if cmd == "route":
         return route_cmd(args)
     if cmd == "login":
-        return cmd_login(args)
+        return _with_sn(lambda: cmd_login(args))
     if cmd in ("dev", "devices", "ls"):
-        return cmd_dev(args)
+        return _with_sn(lambda: cmd_dev(args))
     if cmd in ("acc", "accel", "accelerate"):
-        return cmd_acc(args)
+        return _with_sn(lambda: cmd_acc(args))
     if cmd in ("unacc", "stop-acc", "deacc"):
-        return cmd_unacc(args)
+        return _with_sn(lambda: cmd_unacc(args))
     if cmd in ("games", "gamelist"):
-        return cmd_games(args)
+        return _with_sn(lambda: cmd_games(args))
     print("unknown command: %s\n" % cmd)
     print(__doc__)
     return 2
+
+
+def _with_sn(fn):
+    """云端命令前先确保 SN 已知：本地探测不到就走 SSH 读 activate_status。"""
+    if current_sn():
+        return fn()
+    try:
+        detect_sn_via_ssh()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        return fn()
+    except SystemExit as exc:
+        if str(exc) == "4":
+            print("还没探测到路由器 SN：先跑 `python uu.py status`，")
+            print("或设环境变量 UU_SN=<路由器 MAC/SN>")
+            return 4
+        raise
+
+
+def detect_sn_via_ssh():
+    """SSH 读插件写的 /tmp/uu/activate_status（内容就是路由器 MAC）。"""
+    c = connect()
+    try:
+        out, _, _ = run(c, "cat /tmp/uu/activate_status 2>/dev/null")
+    finally:
+        try:
+            c.close()
+        except Exception:  # noqa: BLE001
+            pass
+    sn = (out or "").strip().splitlines()
+    sn = sn[0].strip() if sn else ""
+    if sn:
+        set_sn(sn)
+    return sn
 
 
 if __name__ == "__main__":
