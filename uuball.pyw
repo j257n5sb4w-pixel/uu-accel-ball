@@ -8,6 +8,7 @@
 启动：pythonw uuball.pyw
 自检：python uuball.pyw --selftest    打印内部状态后退出，不动云端
       python uuball.pyw --probe       只打印云端/本机解析结果
+      python uuball.pyw --version     打印版本号
 """
 import json
 import math
@@ -37,6 +38,7 @@ if HERE not in sys.path:
 import uu  # noqa: E402
 
 APP_NAME = "UU 加速球"
+VERSION = "1.0.2"
 
 # 分层窗口的透明色键：画布上等于这个颜色的像素 -> 完全透明（并且点击穿透）
 KEY = os.environ.get("UUBALL_KEY") or "#fffefe"
@@ -62,7 +64,7 @@ CHIP_BG = "#f2f4f7"
 
 # ----------------------------------------------------------------- 封面
 def http_get(url, timeout=15.0):
-    req = urllib.request.Request(url, headers={"User-Agent": "uu-ball/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "uu-ball/" + VERSION})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
@@ -492,7 +494,7 @@ class LoginDialog:
         w.overrideredirect(True)
         w.attributes("-topmost", True)
         w.configure(bg="#ffffff")
-        ww, hh = 380, 176
+        ww, hh = 560, 210
         sw = w.winfo_screenwidth()
         sh = w.winfo_screenheight()
         x = max(0, (sw - ww) // 2)
@@ -500,19 +502,29 @@ class LoginDialog:
         w.geometry("%dx%d+%d+%d" % (ww, hh, x, y))
         tk.Label(w, text="粘入 UU 网页的 Cookie（含 sess=…）", bg="#ffffff",
                  fg=INK, font=(FONT, 10, "bold")).place(x=16, y=14)
-        tk.Label(w, text="浏览器 F12 → Network → 任一 /api 请求 → 复制 Cookie",
-                 bg="#ffffff", fg=MUTED, font=(FONT, 8)).place(x=16, y=40)
+        # 取 cookie 的两行小字：第一行说去哪登录，第二行给开发者工具里的完整路径
+        tk.Label(w, text="登录并打开路由器的UU加速器后台", bg="#ffffff",
+                 fg=MUTED, font=(FONT, 8), anchor="w",
+                 justify="left").place(x=16, y=40, width=ww - 32)
+        tk.Label(w, text="浏览器F12→ Application（应用程序）→ Cookies → "
+                         "https://router.uu.163.com → sess → value（值）",
+                 bg="#ffffff", fg=MUTED, font=(FONT, 8), anchor="w",
+                 justify="left").place(x=16, y=62, width=ww - 32)
+        # 有效期提醒：sess 是 HttpOnly cookie，Max-Age=1296000（15 天）
+        tk.Label(w, text="该 cookie 自初次登录开始默认保存 15 天", bg="#ffffff",
+                 fg=ACCENT, font=(FONT, 8, "bold"), anchor="w",
+                 justify="left").place(x=16, y=84, width=ww - 32)
         self.var = tk.StringVar()
         ent = tk.Entry(w, textvariable=self.var, font=(FONT, 9),
                        relief="solid", bd=1)
-        ent.place(x=16, y=64, width=ww - 32, height=26)
+        ent.place(x=16, y=112, width=ww - 32, height=26)
         ent.focus_set()
         tk.Button(w, text="取消", command=self.close, relief="flat",
                   bg=CHIP_BG, fg=INK, font=(FONT, 9),
-                  activebackground="#e6e9ee").place(x=ww - 180, y=110, width=72, height=30)
+                  activebackground="#e6e9ee").place(x=ww - 180, y=154, width=72, height=30)
         tk.Button(w, text="登录", command=self.ok, relief="flat",
                   bg=ACCENT, fg="#ffffff", font=(FONT, 9, "bold"),
-                  activebackground="#0f5fd0").place(x=ww - 96, y=110, width=80, height=30)
+                  activebackground="#0f5fd0").place(x=ww - 96, y=154, width=80, height=30)
         tk.Button(w, text="×", command=self.close, relief="flat",
                   bg="#ffffff", fg=MUTED, font=(FONT, 11),
                   activebackground="#f2f4f7", bd=0).place(x=ww - 34, y=4, width=28, height=26)
@@ -566,7 +578,7 @@ class App:
                       "note": "", "gid": "", "icon": ""}
 
         self.root = tk.Tk()
-        self.root.title(APP_NAME)
+        self.root.title("%s v%s" % (APP_NAME, VERSION))
         self.root.overrideredirect(True)
         try:
             self.root.attributes("-topmost", True)
@@ -588,6 +600,8 @@ class App:
             _log("透明色设置失败: %r" % (exc,))
 
         self.menu = tk.Menu(self.root, tearoff=0, font=(FONT, 9))
+        self.menu.add_command(label="%s v%s" % (APP_NAME, VERSION), state="disabled")
+        self.menu.add_separator()
         self.menu.add_command(label="选择游戏…", command=self.open_panel)
         self.menu.add_command(label="停止加速", command=lambda: self.act_stop())
         self.menu.add_separator()
@@ -1843,6 +1857,9 @@ def main(argv):
         os.makedirs(CFG_DIR, exist_ok=True)
     except Exception:
         pass
+    if "--version" in argv or "-V" in argv:
+        print("%s v%s" % (APP_NAME, VERSION))
+        return 0
     if "--pos" in argv:
         # 调试用：--pos 420,260 强制小球位置
         try:
@@ -1863,6 +1880,7 @@ def main(argv):
         selftest(6.0, "--panel" in argv)
         return 0
     if "--probe" in argv:
+        print("version  =", VERSION)
         print("local_ip =", local_ip())
         print("cfg_dir  =", CFG_DIR)
         print("ball     =", BALL, "disc_r =", R_DISC, "cover_px =", COVER_PX)

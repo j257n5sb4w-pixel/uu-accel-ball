@@ -259,3 +259,7 @@ python uu.py route 192.168.50.120 off
   `session.json`、`uuctl.sh`、`uu_route.sh` 首次运行由 `seed_files()` 落到 exe 旁。
 - 新电脑：云端无本机记录时用 ip/mac/hostname 现造 deviceinfo 走 `/acc` 自动注册；
   未登录时点小球弹 Cookie 登录框（`LoginDialog` / `apply_cookie`）。
+- **v1.0.2**：登录框小字改成两行 —— `登录并打开路由器的UU加速器后台` /
+  `浏览器F12→ Application（应用程序）→ Cookies → https://router.uu.163.com → sess → value（值）`，
+  下面蓝色一行提醒「该 cookie 自初次登录开始默认保存 15 天」（窗口加宽到 560×210 才放得下整行路径）；
+  版本号进 `VERSION`，显示在右键菜单首行、窗口标题、`--version` / `--probe`。

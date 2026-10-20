@@ -15,8 +15,8 @@
 
 ## 下载（Windows 便携版）
 
-[v1.0.0 release](https://github.com/j257n5sb4w-pixel/uu-accel-ball/releases/latest)
-里的 `uu-ball-v1.0.0-win64.zip`：解压 → 双击 `UU加速球.exe`。
+[v1.0.2 release](https://github.com/j257n5sb4w-pixel/uu-accel-ball/releases/latest)
+里的 `uu-ball-v1.0.2-win64.zip`：解压 → 双击 `UU加速球.exe`。
 包内不含任何账号会话，第一次运行需要粘一次 Cookie（见下）。
 
 ## 快速开始（源码运行）
@@ -24,13 +24,18 @@
 ```bat
 python uuball.pyw            :: 需要 Python 3.9+（tkinter），无第三方依赖
 python uuball.pyw --selftest :: 不开窗，打印探测/登录/设备/游戏库结果
+python uuball.pyw --version  :: 打印版本号
 ```
 
 首次运行若小球显示「未登录」，点它 → 弹出登录框 → 粘贴浏览器 Cookie：
 
-1. 浏览器打开 `https://router.uu.163.com/asus/pc.html` 并登录（只有短信验证码登录）
-2. F12 → Network → 点任意 `/api/...` 请求 → 复制请求头 `Cookie` 整串（含 `sess=...`）
-3. 粘进框里点「登录」，会话约 15 天有效
+1. 浏览器登录并打开路由器的 UU 加速器后台（`https://router.uu.163.com/asus/pc.html`，只有短信验证码登录）
+2. 浏览器 `F12` → `Application（应用程序）` → `Cookies` → `https://router.uu.163.com`
+   → `sess` → `value（值）`，复制这一行
+3. 粘进框里点「登录」，会话有效期见下
+
+> `sess` 是 HttpOnly cookie，`Max-Age=1296000`：**该 cookie 自初次登录开始默认保存 15 天**。
+> 过期后小球会变回「未登录」，按上面步骤再粘一次即可。
 
 ## 打包成 exe
 
@@ -80,4 +85,5 @@ MIT，见 `LICENSE`。
 
 ## 更新记录
 
+- **v1.0.2** — 登录窗口小字改成两行：`登录并打开路由器的UU加速器后台` / `浏览器F12→ Application（应用程序）→ Cookies → https://router.uu.163.com → sess → value（值）`，下面再提醒「该 cookie 自初次登录开始默认保存 15 天」（窗口加宽到 560×210 以容纳整行路径）；同时补上版本号显示（右键菜单首行、窗口标题、`--version`、`--probe`），`uu.py` 的 `not_login` 帮助文本与 `使用说明.txt` 同步成同一说法。
 - **v1.0.1** — 修复：SN 不再写死成某台路由器的值；登录态按 SN 归属校验（别人拷了 `session.json` 会自动作废）；登录后立即验证并回显失败原因；没探测到路由器时不再误报；单实例锁改用 pidfile（旧版固定端口可能被系统保留区占用而拒绝启动）。

@@ -244,9 +244,11 @@ NOT_LOGIN_HELP = """\
 
 登录只能用手机号 + 短信验证码（还有易盾验证码），没法纯命令行自动完成。做法：
 
-1. 浏览器打开（登录一次，保持登录）：
+1. 浏览器打开并登录（保持登录）：
    {page}#/acce?gwSn={sn}&type={rtype}
-2. F12 -> Network -> 任意 /api/ 请求 -> 复制请求头里的 Cookie 整串
+2. 浏览器 F12 -> Application（应用程序）-> Cookies -> https://router.uu.163.com
+   -> sess -> value（值），复制这一行
+   （该 cookie 自初次登录开始默认保存 15 天）
 3. 存进去：
    python uu.py login --cookie "<粘贴的 Cookie>"
 4. 再跑：
